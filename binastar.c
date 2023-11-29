@@ -20,6 +20,8 @@ typedef struct
     int g;
     double h;
     double f;
+    int index;
+    int parent_index;
 } node;
 
 typedef struct
@@ -59,13 +61,10 @@ int main(int argc, char *argv[])
         printf("Error when allocating the memory for the nodes\n");
         return 2;
     }
+    fread(nodes, sizeof(node), nnodes, binmapfile);
 
-    for (size_t i = 0; i < nnodes; ++i)
+    for (int i = 0; i < nnodes; ++i)
     {
-        // Read the node data
-        fread(&nodes[i], sizeof(node), 1, binmapfile);
-
-        // Allocate memory for the successors and read the successors data
         nodes[i].successors = (unsigned long *)malloc(sizeof(unsigned long) * nodes[i].nsucc);
         fread(nodes[i].successors, sizeof(unsigned long), nodes[i].nsucc, binmapfile);
     }
@@ -77,22 +76,15 @@ int main(int argc, char *argv[])
 
     node origin_node, target_node;
     int origin_index, target_index;
+    char *ptr;
 
     // We take the origin and target nodes for the A* algorithm
-    for (int i = 0; i < nnodes; i++)
-    {
-        if (nodes[i].id == atoi(argv[2]))
-        {
-            nodes[i].g = 0;
-            origin_node = nodes[i];
-            origin_index = i;
-        }
-        if (nodes[i].id == atoi(argv[3]))
-        {
-            target_node = nodes[i];
-            target_index = i;
-        }
-    }
+    origin_index = searchNode(strtoul(argv[2], &ptr, 10), nodes, nnodes);
+    origin_node = nodes[origin_index];
+
+    target_index = searchNode(strtoul(argv[3], &ptr, 10), nodes, nnodes);
+    target_node = nodes[target_index];
+
     // We create the queue
     queue priorityqueue;
     priorityqueue.size = 1;
@@ -127,6 +119,7 @@ int main(int argc, char *argv[])
                     nodes[succ_index].g = current_node.g + 1;
                     nodes[succ_index].h = sqrt((nodes[succ_index].lat - target_node.lat) * (nodes[succ_index].lat - target_node.lat) + (nodes[succ_index].lon - target_node.lon) * (nodes[succ_index].lon - target_node.lon));
                     nodes[succ_index].f = nodes[succ_index].g + nodes[succ_index].h;
+                    nodes[succ_index].parent_index = current_node.index;
                     priorityqueue = enqueue(priorityqueue, nodes, succ_index);
                 }
             }
@@ -140,19 +133,7 @@ int main(int argc, char *argv[])
     finalpath[nodes[target_index].g] = nodes[target_index];
     for (int i = nodes[target_index].g - 1; i >= 0; i--)
     {
-        for (int j = 0; j < nnodes; j++)
-        {
-            if (nodes[j].g == i)
-            {
-                for (int k = 0; k < nodes[j].nsucc; k++)
-                {
-                    if (nodes[nodes[j].successors[k]].id == finalpath[i + 1].id)
-                    {
-                        finalpath[i] = nodes[j];
-                    }
-                }
-            }
-        }
+        finalpath[i] = nodes[finalpath[i + 1].parent_index];
     }
 
     double total_distance = 0;

@@ -14,6 +14,8 @@ typedef struct
     int g;
     double h;
     double f;
+    int index;
+    int parent_index;
 } node;
 
 unsigned long searchNode(unsigned long id, node *nodes, unsigned long nnodes);
@@ -87,6 +89,7 @@ int main(int argc, char *argv[])
             nodes[index].lon = atof(field);
 
             nodes[index].nsucc = 0; // start with 0 successors
+            nodes[index].index = index;
 
             index++;
         }
@@ -193,21 +196,6 @@ int main(int argc, char *argv[])
     fclose(mapfile);
     printf("Assigned %ld edges\n", nedges);
     printf("Elapsed time: %f seconds\n", (float)(clock() - start_time) / CLOCKS_PER_SEC);
-    // Look for a node with more than 4 successors
-    for (unsigned long i = 0; i < nnodes; i++) // print nodes with more than 2 successors
-    {
-        if (nodes[i].nsucc > 4)
-        {
-            index = i;
-            break;
-        }
-        /*{
-            printf("Node %lu has id=%lu and %u successors\n",i,nodes[i].id, nodes[i].nsucc);
-        }*/
-    }
-    printf("Node %lu has id=%lu and %u successors:\n", index, nodes[index].id, nodes[index].nsucc);
-    for (int i = 0; i < nodes[index].nsucc; i++)
-        printf("  Node %lu with id %lu.\n", nodes[index].successors[i], nodes[nodes[index].successors[i]].id);
 
     FILE *binmapfile;
     char binmapname[80];
@@ -216,14 +204,16 @@ int main(int argc, char *argv[])
 
     binmapfile = fopen(binmapname, "wb");
     fwrite(&nnodes, sizeof(unsigned long), 1, binmapfile);
-    for (size_t i = 0; i < nnodes; ++i)
-    {
-        // Write the node data
-        fwrite(&nodes[i], sizeof(node), 1, binmapfile);
+    fwrite(nodes, sizeof(node), nnodes, binmapfile);
 
-        // Write the successors data pointed to by the node
-        fwrite(nodes[i].successors, sizeof(unsigned long), nodes[i].nsucc, binmapfile);
+    for (int i = 0; i < nnodes; i++)
+    {
+        if (nodes[i].nsucc)
+        {
+            fwrite(nodes[i].successors, sizeof(unsigned long), nodes[i].nsucc, binmapfile);
+        }
     }
+
     fclose(binmapfile);
 
     return 0;
